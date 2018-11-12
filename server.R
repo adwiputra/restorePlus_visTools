@@ -65,13 +65,30 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
     print(xyplot(income ~ college, data = zipsInBounds(), xlim = range(allzips$college), ylim = range(allzips$income)))
   })
 
+  observe({
+    typeIn <- as.character(input$type)
+    if(typeIn == "PriFor" | typeIn == "CrpLnd")
+      updateSelectInput(session, "color", "Color", choices = c("Area" = "Area"), selected = "Area") else
+        updateSelectInput(session, "color", "Color", choices = c(
+          "Production" = "Production",
+          "Productivity" = "Productivity",
+          "Area" = "Area"
+        ), selected = "Production")
+  })
   # This observer is responsible for maintaining the circles and legend,
   # according to the variables the user has chosen to map to color and size.
   observe({
     typeBy <- input$type
     scenBy <- input$scen
     yearBy <- input$year
-    colorBy <- input$color
+    if(typeBy != "PriFor" & typeBy != "CrpLnd")
+      colorBy <- input$color else
+        colorBy <- "Area"
+    
+    if(colorBy == "Area")
+      unit <- "1,000 Ha" else if(colorBy == "Production")
+        unit <- "1,000 Tonnes" else
+          unit <- "Tonnes/Ha"
     # sizeBy <- input$size
     # dummy data AD====
     # joinTable <- read.csv("master_data_wide.csv", stringsAsFactors= FALSE)
@@ -110,7 +127,7 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
                                                                           opacity = 1.0, fillOpacity = 0.5,
                                                                           color = eval(parse(text= paste0("~pale(", colorBy,")"))),
                                                                           highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                                                                              bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, values=colorDat, title="Tes1", layerId = "colorLegend")
+                                                                                                              bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = NULL, values=colorDat, title= paste0(colorBy, "<br>(", unit, ")"), layerId = "colorLegend")
     #     layerId="colorLegend")
   })
 
