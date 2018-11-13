@@ -53,20 +53,21 @@ navbarPage("Superzip", id="nav",
         selectInput("type", "Type", varsType),
         selectInput("scen", "Scenario", varsScen),
         selectInput("color", "Color", vars),
-        sliderInput("year", "Year", 2000, 2050, value = 2000, step = 10),
+        sliderInput("year", "Year", 2000, 2050, value = 2000, step = 10), hr(),
         # selectInput("size", "Size", vars, selected = "adultpop"),
         # conditionalPanel("input.color == 'superzip' || input.size == 'superzip'",
         #   # Only prompt for threshold when coloring or sizing by superzip
         #   numericInput("threshold", "SuperZIP threshold (top n percentile)", 5)
         # ),
-
-        plotOutput("histCentile", height = 200),
+# 
+#         plotOutput("histCentile", height = 200),
         plotOutput("scatterCollegeIncome", height = 250)
-      ),
+      # ),
+)
 
-      tags$div(id="cite",
-        'Data compiled for ', tags$em('Coming Apart: The State of White America, 1960–2010'), ' by Charles Murray (Crown Forum, 2012).'
-      )
+      # tags$div(id="cite",
+      #   'Data compiled for ', tags$em('Coming Apart: The State of White America, 1960–2010'), ' by Charles Murray (Crown Forum, 2012).'
+      # )
     )
   ),
 

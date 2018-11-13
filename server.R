@@ -3,7 +3,7 @@ library(rgdal)
 library(RColorBrewer)
 library(scales)
 library(lattice)
-library(dplyr)
+library(tidyverse)
 
 # Leaflet bindings are a bit slow; for now we'll just sample to compensate
 # set.seed(100)
@@ -15,7 +15,7 @@ zipdata <- allzips[sample.int(nrow(allzips), 10000),]
 function(input, output, session) {
 
   ## Interactive Map ###########################################
-colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
+colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
   # Create the map
   output$map <- renderLeaflet({
     leaflet() %>%
@@ -23,47 +23,65 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
         urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
         attribution = 'Maps by <a href="http://www.mapbox.com/">Mapbox</a>'
       ) %>%
-      setView(lng = 118.0832, lat = -2.629957, zoom = 5)
+      setView(lng = 124.0832, lat = -2.629957, zoom = 5)
   })
 
   # A reactive expression that returns the set of zips that are
   # in bounds right now
-  zipsInBounds <- reactive({
-    if (is.null(input$map_bounds))
-      return(zipdata[FALSE,])
-    bounds <- input$map_bounds
-    latRng <- range(bounds$north, bounds$south)
-    lngRng <- range(bounds$east, bounds$west)
-
-    subset(zipdata,
-      latitude >= latRng[1] & latitude <= latRng[2] &
-        longitude >= lngRng[1] & longitude <= lngRng[2])
+  # zipsInBounds <- reactive({
+  #   if (is.null(input$map_bounds))
+  #     return(zipdata[FALSE,])
+  #   bounds <- input$map_bounds
+  #   latRng <- range(bounds$north, bounds$south)
+  #   lngRng <- range(bounds$east, bounds$west)
+  # 
+  #   subset(zipdata,
+  #     latitude >= latRng[1] & latitude <= latRng[2] &
+  #       longitude >= lngRng[1] & longitude <= lngRng[2])
+  # })
+  
+  seriesInView <- reactive({
+    typeBy <- input$type
+    scenBy <- input$scen
+    if(typeBy != "PriFor" & typeBy != "CrpLnd")
+      colorBy <- input$color else
+        colorBy <- "Area"
+    if(colorBy == "Area")
+      unit <- "Ha" else if(colorBy == "Production")
+        unit <- "Ton" else
+          unit <- "Ton/Ha"
+    # reshaping the table into appropriate form: year, scen, value
+    plotTable <- colRowRds %>% filter(Type == paste0(typeBy) & (Scen == paste0(scenBy) | Scen == "Baseline"))
+    plotTable <- plotTable %>% select(Scen, Year, colorBy) %>% group_by(Scen, Year) %>% summarize_at(colorBy, funs(sum))
+    # filling the year with no data
+    return(plotTable)
+    # ADhere
   })
 
   # Precalculate the breaks we'll need for the two histograms
   centileBreaks <- hist(plot = FALSE, allzips$centile, breaks = 20)$breaks
 
-  output$histCentile <- renderPlot({
-    # If no zipcodes are in view, don't plot
-    if (nrow(zipsInBounds()) == 0)
-      return(NULL)
+  # output$histCentile <- renderPlot({
+  #   # If no zipcodes are in view, don't plot
+  #   if (nrow(zipsInBounds()) == 0)
+  #     return(NULL)
+  # 
+  #   hist(zipsInBounds()$centile,
+  #     breaks = centileBreaks,
+  #     main = "SuperZIP score (visible zips)",
+  #     xlab = "Percentile",
+  #     xlim = range(allzips$centile),
+  #     col = '#00DD00',
+  #     border = 'white')
+  # })
 
-    hist(zipsInBounds()$centile,
-      breaks = centileBreaks,
-      main = "SuperZIP score (visible zips)",
-      xlab = "Percentile",
-      xlim = range(allzips$centile),
-      col = '#00DD00',
-      border = 'white')
-  })
-
-  output$scatterCollegeIncome <- renderPlot({
-    # If no zipcodes are in view, don't plot
-    if (nrow(zipsInBounds()) == 0)
-      return(NULL)
-
-    print(xyplot(income ~ college, data = zipsInBounds(), xlim = range(allzips$college), ylim = range(allzips$income)))
-  })
+  # output$scatterCollegeIncome <- renderPlot({
+  #   # If no zipcodes are in view, don't plot
+  #   if (nrow(zipsInBounds()) == 0)
+  #     return(NULL)
+  # 
+  #   print(xyplot(income ~ college, data = zipsInBounds(), xlim = range(allzips$college), ylim = range(allzips$income)))
+  # })
 
   observe({
     typeIn <- as.character(input$type)
@@ -128,9 +146,28 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
                                                                           opacity = 1.0, fillOpacity = 0.5,
                                                                           color = ~palet,
                                                                           highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                                                                              bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = NULL, values=colorDat, title= paste0(colorBy, "<br>(", unit, ")"), layerId = "colorLegend")
-    #     layerId="colorLegend")
+                                                                                                              bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", values=colorDat, title= paste0(colorBy, "<br>(", unit, ")"), layerId = "colorLegend")
+    #     labFormat = labelFormat(big.mark = ".", decimal.mark = ",")
   })
+  
+  yAxis <- reactive({
+    if(input$type == "PriFor" | input$type == "CrpLnd")
+      return("Area") else
+        return(input$color)
+  })
+  
+  output$scatterCollegeIncome <- renderPlot({
+    ggplot(data = seriesInView(), aes_string("Year", paste0(yAxis()))) + geom_line(aes(color = Scen)) + theme_classic() + theme(legend.position= "bottom", legend.title = element_blank(), axis.title.x = element_blank()) + scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
+    # isolate({input$color})
+  })
+  # observe({ # sensitive only to the adjustments made in type, scenario, and color
+  #   typeBy <- input$type
+  #   scenBy <- input$scen
+  #   if(typeBy != "PriFor" & typeBy != "CrpLnd")
+  #     colorBy <- input$color else
+  #       colorBy <- "Area"
+  #   
+  # })
   
   # Show a popup at the given location
   # showZipcodePopup <- function(zipcode, lat, lng) {
@@ -153,9 +190,9 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
       # tags$strong(HTML(sprintf("%s, %s %s",
       #   selectedZip$city.x, selectedZip$state.x, selectedZip$zipcode
       # ))), tags$br(),
-      sprintf("Produksi (Ton): %s", prettyNum(round(selectedZip$Production, 3), big.mark = ".", decimal.mark = ",")), tags$br(),
+      sprintf("Production (Tonnes): %s", prettyNum(round(selectedZip$Production, 3), big.mark = ".", decimal.mark = ",")), tags$br(),
       sprintf("Area (Ha): %s", prettyNum(round(selectedZip$Area, 3), big.mark = ".", decimal.mark = ",")), tags$br(),
-      sprintf("Produktivitas (Ton/Ha): %s", prettyNum(round(selectedZip$Productivity, 4), big.mark = ".", decimal.mark = ","))
+      sprintf("Productivity (Tonnes/Ha): %s", prettyNum(round(selectedZip$Productivity, 4), big.mark = ".", decimal.mark = ","))
     ))
     leafletProxy("map") %>% addPopups(lng, lat, content, layerId = zipcode)
   }
