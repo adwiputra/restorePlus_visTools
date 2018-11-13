@@ -23,3 +23,4 @@ cleantable <- allzips %>%
   )
 
 colRowRds <- readRDS("data/colrow.rds")
+colRowShp <- readRDS("data/colRowShp.rds")

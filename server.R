@@ -86,24 +86,24 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
         colorBy <- "Area"
     
     if(colorBy == "Area")
-      unit <- "1,000 Ha" else if(colorBy == "Production")
-        unit <- "1,000 Tonnes" else
-          unit <- "Tonnes/Ha"
+      unit <- "Ha" else if(colorBy == "Production")
+        unit <- "Ton" else
+          unit <- "Ton/Ha"
     # sizeBy <- input$size
     # dummy data AD====
     # joinTable <- read.csv("master_data_wide.csv", stringsAsFactors= FALSE)
     joinTable <- colRowRds %>% filter(Type == paste0(typeBy) & Year == yearBy & Scen == paste0(scenBy))
     joinTable <- joinTable %>% rename_at(1, ~"GRID")
-    colRow@data <- colRow@data %>% left_join(joinTable, by = "GRID")
-    if (colorBy == "superzip") {
-      # Color and palette are treated specially in the "superzip" case, because
-      # the values are categorical instead of continuous.
-      colorData <- ifelse(zipdata$centile >= (100 - input$threshold), "yes", "no")
-      pal <- colorFactor("viridis", colorData)
-    } else {
-      colorData <- zipdata[[colorBy]]
-      pal <- colorBin("viridis", colorData, 7, pretty = FALSE)
-    }
+    colRowDisp <- colRowShp %>% left_join(joinTable, by = "GRID")
+    # if (colorBy == "superzip") {
+    #   # Color and palette are treated specially in the "superzip" case, because
+    #   # the values are categorical instead of continuous.
+    #   colorData <- ifelse(zipdata$centile >= (100 - input$threshold), "yes", "no")
+    #   pal <- colorFactor("viridis", colorData)
+    # } else {
+    #   colorData <- zipdata[[colorBy]]
+    #   pal <- colorBin("viridis", colorData, 7, pretty = FALSE)
+    # }
 
     # if (sizeBy == "superzip") {
     #   # Radius is treated specially in the "superzip" case.
@@ -119,42 +119,64 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev")
     #   addLegend("bottomleft", pal=pal, values=colorData, title=colorBy,
     #     layerId="colorLegend")
     # AD misc====
-    colorDat <- colRow@data %>% dplyr::select(colorBy) %>% pull()
+    colorDat <- colRowDisp %>% dplyr::select(colorBy) %>% pull()
     pale <- colorNumeric("viridis", colorDat)
+    palet <- colRowDisp %>% dplyr::select(colorBy) %>% pull() %>% pale()
     # AD misc \ends----
-
-    leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5,
+    # , layerId = ~GRID to be added with proper ID
+    leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
                                                                           opacity = 1.0, fillOpacity = 0.5,
-                                                                          color = eval(parse(text= paste0("~pale(", colorBy,")"))),
+                                                                          color = ~palet,
                                                                           highlightOptions = highlightOptions(color = "white", weight = 2,
                                                                                                               bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = NULL, values=colorDat, title= paste0(colorBy, "<br>(", unit, ")"), layerId = "colorLegend")
     #     layerId="colorLegend")
   })
-
+  
   # Show a popup at the given location
-  showZipcodePopup <- function(zipcode, lat, lng) {
-    selectedZip <- allzips[allzips$zipcode == zipcode,]
+  # showZipcodePopup <- function(zipcode, lat, lng) {
+  #   selectedZip <- allzips[allzips$zipcode == zipcode,]
+  #   content <- as.character(tagList(
+  #     tags$h4("Score:", as.integer(selectedZip$centile)),
+  #     tags$strong(HTML(sprintf("%s, %s %s",
+  #       selectedZip$city.x, selectedZip$state.x, selectedZip$zipcode
+  #     ))), tags$br(),
+  #     sprintf("Median household income: %s", dollar(selectedZip$income * 1000)), tags$br(),
+  #     sprintf("Percent of adults with BA: %s%%", as.integer(selectedZip$college)), tags$br(),
+  #     sprintf("Adult population: %s", selectedZip$adultpop)
+  #   ))
+  #   leafletProxy("map") %>% addPopups(lng, lat, content, layerId = zipcode)
+  # }
+  showZipcodePopup <- function(zipcode, lat, lng, colRowDisp) {
+    selectedZip <- colRowDisp[colRowDisp$LocID == zipcode,]
     content <- as.character(tagList(
-      tags$h4("Score:", as.integer(selectedZip$centile)),
-      tags$strong(HTML(sprintf("%s, %s %s",
-        selectedZip$city.x, selectedZip$state.x, selectedZip$zipcode
-      ))), tags$br(),
-      sprintf("Median household income: %s", dollar(selectedZip$income * 1000)), tags$br(),
-      sprintf("Percent of adults with BA: %s%%", as.integer(selectedZip$college)), tags$br(),
-      sprintf("Adult population: %s", selectedZip$adultpop)
+      tags$h4("Provinsi:", paste0(selectedZip$PROVINSI)),
+      # tags$strong(HTML(sprintf("%s, %s %s",
+      #   selectedZip$city.x, selectedZip$state.x, selectedZip$zipcode
+      # ))), tags$br(),
+      sprintf("Produksi (Ton): %s", prettyNum(round(selectedZip$Production, 3), big.mark = ".", decimal.mark = ",")), tags$br(),
+      sprintf("Area (Ha): %s", prettyNum(round(selectedZip$Area, 3), big.mark = ".", decimal.mark = ",")), tags$br(),
+      sprintf("Produktivitas (Ton/Ha): %s", prettyNum(round(selectedZip$Productivity, 4), big.mark = ".", decimal.mark = ","))
     ))
     leafletProxy("map") %>% addPopups(lng, lat, content, layerId = zipcode)
   }
-
   # When map is clicked, show a popup with city info
   observe({
     leafletProxy("map") %>% clearPopups()
+    typeBy <- input$type
+    scenBy <- input$scen
+    yearBy <- input$year
+    if(typeBy != "PriFor" & typeBy != "CrpLnd")
+      colorBy <- input$color else
+        colorBy <- "Area"
+    joinTable <- colRowRds %>% filter(Type == paste0(typeBy) & Year == yearBy & Scen == paste0(scenBy))
+    joinTable <- joinTable %>% rename_at(1, ~"GRID")
+    colRowDisp <- colRowShp %>% left_join(joinTable, by = "GRID")
     event <- input$map_shape_click
     if (is.null(event))
       return()
 
     isolate({
-      showZipcodePopup(event$id, event$lat, event$lng)
+      showZipcodePopup(event$id, event$lat, event$lng, colRowDisp = colRowDisp)
     })
   })
 
