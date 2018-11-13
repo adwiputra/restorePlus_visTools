@@ -53,7 +53,7 @@ navbarPage("Superzip", id="nav",
         selectInput("type", "Type", varsType),
         selectInput("scen", "Scenario", varsScen),
         selectInput("color", "Color", vars),
-        sliderInput("year", "Year", 2000, 2050, value = 2000, step = 10), hr(),
+        sliderInput("year", "Year", 2000, 2050, value = 2000, step = 10, sep = ""), hr(),
         # selectInput("size", "Size", vars, selected = "adultpop"),
         # conditionalPanel("input.color == 'superzip' || input.size == 'superzip'",
         #   # Only prompt for threshold when coloring or sizing by superzip

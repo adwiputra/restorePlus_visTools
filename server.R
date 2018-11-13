@@ -105,8 +105,8 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
     
     if(colorBy == "Area")
       unit <- "Ha" else if(colorBy == "Production")
-        unit <- "Ton" else
-          unit <- "Ton/Ha"
+        unit <- "Tonnes" else
+          unit <- "Tonnes/Ha"
     # sizeBy <- input$size
     # dummy data AD====
     # joinTable <- read.csv("master_data_wide.csv", stringsAsFactors= FALSE)
@@ -150,14 +150,42 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
     #     labFormat = labelFormat(big.mark = ".", decimal.mark = ",")
   })
   
+  
+  # reactive values to avoid error in renderplot below====
   yAxis <- reactive({
     if(input$type == "PriFor" | input$type == "CrpLnd")
       return("Area") else
         return(input$color)
   })
   
+  plotTitle <- reactive({
+    expands <- c(
+      "Cocoa" = "Ccoa",
+      "Coffee" = "Coff",
+      "Corn" = "Corn",
+      "Crop Land" = "CrpLnd",
+      "Primary Forest" = "PriFor",
+      "Rice" = "Rice",
+      "Small-holder Oil Plam" = "SOpal",
+      "Company Oil Palm" = "LOpal"
+    )
+    plothead <- expands[which(grepl(input$type, expands))] %>% names()
+    return(plothead)
+  })
+  
+  plotUnit <- reactive({
+    if(yAxis() == "Area")
+      unit <- "Ha" else if(yAxis() == "Production")
+        unit <- "Tonnes" else
+          unit <- "Tonnes/Ha"
+        return(unit)
+  })
+  # reactive values... \ends----
+  
+  
+  
   output$scatterCollegeIncome <- renderPlot({
-    ggplot(data = seriesInView(), aes_string("Year", paste0(yAxis()))) + geom_line(aes(color = Scen)) + theme_classic() + theme(legend.position= "bottom", legend.title = element_blank(), axis.title.x = element_blank()) + scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE))
+    ggplot(data = seriesInView(), aes_string("Year", paste0(yAxis()))) + geom_line(aes(color = Scen)) + theme_classic() + ggtitle(plotTitle()) + ylab(plotUnit()) + theme(legend.position= c(0.004,0.1), legend.title = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.41, size = 18)) + scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) 
     # isolate({input$color})
   })
   # observe({ # sensitive only to the adjustments made in type, scenario, and color
@@ -186,7 +214,7 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
   showZipcodePopup <- function(zipcode, lat, lng, colRowDisp) {
     selectedZip <- colRowDisp[colRowDisp$LocID == zipcode,]
     content <- as.character(tagList(
-      tags$h4("Provinsi:", paste0(selectedZip$PROVINSI)),
+      tags$h4("Province: ", paste0(capwords(selectedZip$PROVINSI, strict = TRUE))),
       # tags$strong(HTML(sprintf("%s, %s %s",
       #   selectedZip$city.x, selectedZip$state.x, selectedZip$zipcode
       # ))), tags$br(),
