@@ -104,15 +104,16 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
         colorBy <- "Area"
     
     if(colorBy == "Area")
-      unit <- "Ha" else if(colorBy == "Production")
-        unit <- "Tonnes" else
-          unit <- "Tonnes/Ha"
+      unit <- "(Ha)" else if(colorBy == "Production")
+        unit <- "(Tonnes)" else
+          unit <- "(Tonnes/Ha)"
     # sizeBy <- input$size
     # dummy data AD====
     # joinTable <- read.csv("master_data_wide.csv", stringsAsFactors= FALSE)
     joinTable <- colRowRds %>% filter(Type == paste0(typeBy) & Year == yearBy & Scen == paste0(scenBy))
     joinTable <- joinTable %>% rename_at(1, ~"GRID")
     colRowDisp <- colRowShp %>% left_join(joinTable, by = "GRID")
+    # colRowDisp <- colRowDisp %>% mutate(Productivity= case_when(is.na(Productivity) ~ 0, TRUE ~ Productivity))
     # if (colorBy == "superzip") {
     #   # Color and palette are treated specially in the "superzip" case, because
     #   # the values are categorical instead of continuous.
@@ -142,13 +143,28 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
     palet <- colRowDisp %>% dplyr::select(colorBy) %>% pull() %>% pale()
     # AD misc \ends----
     # , layerId = ~GRID to be added with proper ID
-    leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
-                                                                          opacity = 1.0, fillOpacity = 0.5,
-                                                                          color = ~palet,
-                                                                          highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                                                                              bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", values=colorDat, title= paste0(colorBy, "<br>(", unit, ")"), layerId = "colorLegend")
-    #     labFormat = labelFormat(big.mark = ".", decimal.mark = ",")
+    if(colorBy != "Productivity"){
+      leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
+                                                                            opacity = 1.0, fillOpacity = 0.5,
+                                                                            color = ~palet,
+                                                                            highlightOptions = highlightOptions(color = "white", weight = 2,
+                                                                                                                bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", values=colorDat, title= paste0(colorBy, "<br>", unit), layerId = "colorLegend")
+    } else{
+      leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
+                                                                            opacity = 1.0, fillOpacity = 0.5,
+                                                                            color = ~palet,
+                                                                            highlightOptions = highlightOptions(color = "white", weight = 2,
+                                                                                                                bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", labFormat = labelFormat(suffix = "                                               "), values=colorDat, title= paste0(colorBy, "<br>", unit), layerId = "colorLegend")
+      #     labFormat = labelFormat(big.mark = ".", decimal.mark = ",")
+      
+    }
   })
+  # leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
+  #                                                                       opacity = 1.0, fillOpacity = 0.5,
+  #                                                                       color = ~palet,
+  #                                                                       highlightOptions = highlightOptions(color = "white", weight = 2,
+  #                                                                                                           bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", values=colorDat, title= paste0(colorBy, "<br>", unit), layerId = "colorLegend")
+  
   
   
   # reactive values to avoid error in renderplot below====
@@ -185,7 +201,7 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
   
   
   output$scatterCollegeIncome <- renderPlot({
-    ggplot(data = seriesInView(), aes_string("Year", paste0(yAxis()))) + geom_line(aes(color = Scen)) + theme_classic() + ggtitle(plotTitle()) + ylab(plotUnit()) + theme(legend.position= c(0.004,0.1), legend.title = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.41, size = 18)) + scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) 
+    ggplot(data = seriesInView(), aes_string("Year", paste0(yAxis()))) + geom_line(aes(color = Scen)) + theme_classic() + ggtitle(plotTitle()) + ylab(plotUnit()) + theme(legend.position= "bottom", legend.title = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.41, size = 18)) + scale_y_continuous(labels=function(x) format(x, big.mark = ",", scientific = FALSE)) 
     # isolate({input$color})
   })
   # observe({ # sensitive only to the adjustments made in type, scenario, and color
@@ -218,9 +234,9 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
       # tags$strong(HTML(sprintf("%s, %s %s",
       #   selectedZip$city.x, selectedZip$state.x, selectedZip$zipcode
       # ))), tags$br(),
-      sprintf("Production (Tonnes): %s", prettyNum(round(selectedZip$Production, 3), big.mark = ".", decimal.mark = ",")), tags$br(),
-      sprintf("Area (Ha): %s", prettyNum(round(selectedZip$Area, 3), big.mark = ".", decimal.mark = ",")), tags$br(),
-      sprintf("Productivity (Tonnes/Ha): %s", prettyNum(round(selectedZip$Productivity, 4), big.mark = ".", decimal.mark = ","))
+      sprintf("Production (Tonnes): %s", prettyNum(round(selectedZip$Production, 3), big.mark = ",")), tags$br(),
+      sprintf("Area (Ha): %s", prettyNum(round(selectedZip$Area, 3), big.mark = ",")), tags$br(),
+      sprintf("Productivity (Tonnes/Ha): %s", prettyNum(round(selectedZip$Productivity, 4), big.mark = ","))
     ))
     leafletProxy("map") %>% addPopups(lng, lat, content, layerId = zipcode)
   }
