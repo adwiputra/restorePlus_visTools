@@ -9,15 +9,15 @@ vars <- c(
 )
 # AD off\ends----
 
-varsType <- c(
+varsType <- list("Commodities" = c(
   "Cocoa" = "Ccoa",
   "Coffee" = "Coff",
   "Corn" = "Corn",
-  "Crop Land" = "CrpLnd",
-  "Primary Forest" = "PriFor",
   "Rice" = "Rice",
   "Small-holder Oil Plam" = "SOpal",
   "Company Oil Palm" = "LOpal"
+), "Land cover" = c("Crop Land" = "CrpLnd",
+                    "Primary Forest" = "PriFor")
 )
 
 varsScen <- c(
@@ -30,7 +30,7 @@ varsScen <- c(
 )
 
 
-navbarPage("Superzip", id="nav",
+navbarPage("KLHS-RPJMN", id="nav",
 
   tabPanel("Interactive map",
     div(class="outer",
@@ -48,6 +48,17 @@ navbarPage("Superzip", id="nav",
       absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
         draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
         width = 330, height = "auto",
+          # tags$style(HTML("
+          #                 i {
+          #                 margin-right: 14px;
+          #                 }
+#                           
+#                           ")),
+# #         tags$style(type='text/css', "
+#         tags$style(type= 'text/css', ".info legend leaflet-control {
+# margin-right: 14px
+# }"
+#     ),
 
         h2("IndoBiom VisTools"),
         selectInput("type", "Type", varsType),
@@ -71,33 +82,33 @@ navbarPage("Superzip", id="nav",
     )
   ),
 
-  tabPanel("Data explorer",
-    fluidRow(
-      column(3,
-        selectInput("states", "States", c("All states"="", structure(state.abb, names=state.name), "Washington, DC"="DC"), multiple=TRUE)
-      ),
-      column(3,
-        conditionalPanel("input.states",
-          selectInput("cities", "Cities", c("All cities"=""), multiple=TRUE)
-        )
-      ),
-      column(3,
-        conditionalPanel("input.states",
-          selectInput("zipcodes", "Zipcodes", c("All zipcodes"=""), multiple=TRUE)
-        )
-      )
-    ),
-    fluidRow(
-      column(1,
-        numericInput("minScore", "Min score", min=0, max=100, value=0)
-      ),
-      column(1,
-        numericInput("maxScore", "Max score", min=0, max=100, value=100)
-      )
-    ),
-    hr(),
-    DT::dataTableOutput("ziptable")
-  ),
+  # tabPanel("Data explorer",
+  #   fluidRow(
+  #     column(3,
+  #       selectInput("states", "States", c("All states"="", structure(state.abb, names=state.name), "Washington, DC"="DC"), multiple=TRUE)
+  #     ),
+  #     column(3,
+  #       conditionalPanel("input.states",
+  #         selectInput("cities", "Cities", c("All cities"=""), multiple=TRUE)
+  #       )
+  #     ),
+  #     column(3,
+  #       conditionalPanel("input.states",
+  #         selectInput("zipcodes", "Zipcodes", c("All zipcodes"=""), multiple=TRUE)
+  #       )
+  #     )
+  #   ),
+  #   fluidRow(
+  #     column(1,
+  #       numericInput("minScore", "Min score", min=0, max=100, value=0)
+  #     ),
+  #     column(1,
+  #       numericInput("maxScore", "Max score", min=0, max=100, value=100)
+  #     )
+  #   ),
+  #   hr(),
+  #   DT::dataTableOutput("ziptable")
+  # ),
 
   conditionalPanel("false", icon("crosshair"))
 )

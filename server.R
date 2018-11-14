@@ -52,8 +52,11 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
           unit <- "Ton/Ha"
     # reshaping the table into appropriate form: year, scen, value
     plotTable <- colRowRds %>% filter(Type == paste0(typeBy) & (Scen == paste0(scenBy) | Scen == "Baseline"))
-    plotTable <- plotTable %>% select(Scen, Year, colorBy) %>% group_by(Scen, Year) %>% summarize_at(colorBy, funs(sum))
-    # filling the year with no data
+    if(colorBy != "Productivity"){
+      plotTable <- plotTable %>% select(Scen, Year, colorBy) %>% group_by(Scen, Year) %>% summarize_at(colorBy, funs(sum))
+    } else{
+      plotTable <- plotTable %>% select(Scen, Year, colorBy) %>% group_by(Scen, Year) %>% summarize_at(colorBy, funs(mean))
+    }
     return(plotTable)
     # ADhere
   })
@@ -82,27 +85,30 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
   # 
   #   print(xyplot(income ~ college, data = zipsInBounds(), xlim = range(allzips$college), ylim = range(allzips$income)))
   # })
-
   observe({
     typeIn <- as.character(input$type)
     if(typeIn == "PriFor" | typeIn == "CrpLnd")
-      updateSelectInput(session, "color", "Color", choices = c("Area" = "Area"), selected = "Area") else
-        updateSelectInput(session, "color", "Color", choices = c(
-          "Production" = "Production",
-          "Productivity" = "Productivity",
-          "Area" = "Area"
-        ), selected = "Production")
+    updateSelectInput(session, "color", "Color", choices = c("Area" = "Area"), selected = "Area") else
+    updateSelectInput(session, "color", "Color", choices = c(
+      "Production" = "Production",
+      "Productivity" = "Productivity",
+      "Area" = "Area"
+    ))
   })
+
+  
   # This observer is responsible for maintaining the circles and legend,
   # according to the variables the user has chosen to map to color and size.
   observe({
     typeBy <- input$type
     scenBy <- input$scen
     yearBy <- input$year
-    if(typeBy != "PriFor" & typeBy != "CrpLnd")
-      colorBy <- input$color else
-        colorBy <- "Area"
-    
+    if(typeBy != "PriFor" & typeBy != "CrpLnd"){
+      colorBy <- input$color
+    } else{
+      colorBy <- "Area"
+      updateSelectInput(session, "color", "Color", choices = c("Area" = "Area"), selected = "Area")
+    }
     if(colorBy == "Area")
       unit <- "(Ha)" else if(colorBy == "Production")
         unit <- "(Tonnes)" else
@@ -143,21 +149,21 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
     palet <- colRowDisp %>% dplyr::select(colorBy) %>% pull() %>% pale()
     # AD misc \ends----
     # , layerId = ~GRID to be added with proper ID
-    if(colorBy != "Productivity"){
+    # if(colorBy != "Productivity"){
       leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
                                                                             opacity = 1.0, fillOpacity = 0.5,
                                                                             color = ~palet,
                                                                             highlightOptions = highlightOptions(color = "white", weight = 2,
                                                                                                                 bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", values=colorDat, title= paste0(colorBy, "<br>", unit), layerId = "colorLegend")
-    } else{
-      leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
-                                                                            opacity = 1.0, fillOpacity = 0.5,
-                                                                            color = ~palet,
-                                                                            highlightOptions = highlightOptions(color = "white", weight = 2,
-                                                                                                                bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", labFormat = labelFormat(suffix = "                                               "), values=colorDat, title= paste0(colorBy, "<br>", unit), layerId = "colorLegend")
+    # } else{
+      # leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
+      #                                                                       opacity = 1.0, fillOpacity = 0.5,
+      #                                                                       color = ~palet,
+      #                                                                       highlightOptions = highlightOptions(color = "white", weight = 2,
+      #                                                                                                           bringToFront = TRUE)) %>% addLegend("bottomleft", pal=pale, na.label = "N\\A", labFormat = labelFormat(suffix = "                                               "), values=colorDat, title= paste0(colorBy, "<br>", unit), layerId = "colorLegend", className = "panel panel-default legend leaflet-control")
       #     labFormat = labelFormat(big.mark = ".", decimal.mark = ",")
       
-    }
+    # }
   })
   # leafletProxy("map", data = colRow) %>%  clearShapes() %>% addPolygons(weight = 1, smoothFactor = 0.5, layerId = ~LocID,
   #                                                                       opacity = 1.0, fillOpacity = 0.5,
@@ -264,59 +270,59 @@ colRow <- readOGR(".", "GLOBIOM_Grid_Prov_Rev4")
 
   ## Data Explorer ###########################################
 
-  observe({
-    cities <- if (is.null(input$states)) character(0) else {
-      filter(cleantable, State %in% input$states) %>%
-        `$`('City') %>%
-        unique() %>%
-        sort()
-    }
-    stillSelected <- isolate(input$cities[input$cities %in% cities])
-    updateSelectInput(session, "cities", choices = cities,
-      selected = stillSelected)
-  })
-
-  observe({
-    zipcodes <- if (is.null(input$states)) character(0) else {
-      cleantable %>%
-        filter(State %in% input$states,
-          is.null(input$cities) | City %in% input$cities) %>%
-        `$`('Zipcode') %>%
-        unique() %>%
-        sort()
-    }
-    stillSelected <- isolate(input$zipcodes[input$zipcodes %in% zipcodes])
-    updateSelectInput(session, "zipcodes", choices = zipcodes,
-      selected = stillSelected)
-  })
-
-  observe({
-    if (is.null(input$goto))
-      return()
-    isolate({
-      map <- leafletProxy("map")
-      map %>% clearPopups()
-      dist <- 0.5
-      zip <- input$goto$zip
-      lat <- input$goto$lat
-      lng <- input$goto$lng
-      showZipcodePopup(zip, lat, lng)
-      map %>% fitBounds(lng - dist, lat - dist, lng + dist, lat + dist)
-    })
-  })
-
-  output$ziptable <- DT::renderDataTable({
-    df <- cleantable %>%
-      filter(
-        Score >= input$minScore,
-        Score <= input$maxScore,
-        is.null(input$states) | State %in% input$states,
-        is.null(input$cities) | City %in% input$cities,
-        is.null(input$zipcodes) | Zipcode %in% input$zipcodes
-      ) %>%
-      mutate(Action = paste('<a class="go-map" href="" data-lat="', Lat, '" data-long="', Long, '" data-zip="', Zipcode, '"><i class="fa fa-crosshairs"></i></a>', sep=""))
-    action <- DT::dataTableAjax(session, df)
-
-    DT::datatable(df, options = list(ajax = list(url = action)), escape = FALSE)
-  })
+  # observe({
+  #   cities <- if (is.null(input$states)) character(0) else {
+  #     filter(cleantable, State %in% input$states) %>%
+  #       `$`('City') %>%
+  #       unique() %>%
+  #       sort()
+  #   }
+  #   stillSelected <- isolate(input$cities[input$cities %in% cities])
+  #   updateSelectInput(session, "cities", choices = cities,
+  #     selected = stillSelected)
+  # })
+  # 
+  # observe({
+  #   zipcodes <- if (is.null(input$states)) character(0) else {
+  #     cleantable %>%
+  #       filter(State %in% input$states,
+  #         is.null(input$cities) | City %in% input$cities) %>%
+  #       `$`('Zipcode') %>%
+  #       unique() %>%
+  #       sort()
+  #   }
+  #   stillSelected <- isolate(input$zipcodes[input$zipcodes %in% zipcodes])
+  #   updateSelectInput(session, "zipcodes", choices = zipcodes,
+  #     selected = stillSelected)
+  # })
+  # 
+  # observe({
+  #   if (is.null(input$goto))
+  #     return()
+  #   isolate({
+  #     map <- leafletProxy("map")
+  #     map %>% clearPopups()
+  #     dist <- 0.5
+  #     zip <- input$goto$zip
+  #     lat <- input$goto$lat
+  #     lng <- input$goto$lng
+  #     showZipcodePopup(zip, lat, lng)
+  #     map %>% fitBounds(lng - dist, lat - dist, lng + dist, lat + dist)
+  #   })
+  # })
+  # 
+  # output$ziptable <- DT::renderDataTable({
+  #   df <- cleantable %>%
+  #     filter(
+  #       Score >= input$minScore,
+  #       Score <= input$maxScore,
+  #       is.null(input$states) | State %in% input$states,
+  #       is.null(input$cities) | City %in% input$cities,
+  #       is.null(input$zipcodes) | Zipcode %in% input$zipcodes
+  #     ) %>%
+  #     mutate(Action = paste('<a class="go-map" href="" data-lat="', Lat, '" data-long="', Long, '" data-zip="', Zipcode, '"><i class="fa fa-crosshairs"></i></a>', sep=""))
+  #   action <- DT::dataTableAjax(session, df)
+  # 
+  #   DT::datatable(df, options = list(ajax = list(url = action)), escape = FALSE)
+  # })
 }
